@@ -1,0 +1,36 @@
+{
+  "effortLevel": "medium",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(nix develop path:. -c scripts/preflight.sh:*)",
+      "Bash(nix develop path:. -c cargo fmt:*)",
+      "Bash(nix develop path:. -c cargo clippy:*)",
+      "Bash(nix develop path:. -c cargo test:*)",
+      "Bash(nix develop path:. -c cargo check:*)",
+      "Bash(nix develop path:. -c cargo audit:*)",
+      "Bash(nix build path:.:*)",
+      "Bash(scripts/preflight.sh:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo check:*)",
+      "Bash(stat:*)",
+      "Bash(ls:*)"
+    ],
+    "deny": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git stash:*)",
+      "Bash(nixos-rebuild switch:*)",
+      "Bash(nixos-rebuild boot:*)",
+      "Bash(nix flake check:*)",
+      "Bash(rm -rf:*)"
+    ]
+  }
+}
