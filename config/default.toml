@@ -1,0 +1,36 @@
+# Reference only: these are the built-in defaults of vexnas-web. The NixOS module
+# generates /etc/vexnas/config.toml from services.vexnas.* (and merges
+# services.vexnas.settings over it); you normally never write this by hand.
+# Unknown keys are rejected at startup.
+
+[server]
+listen = ["0.0.0.0", "::"]      # one socket each; IPv6 sockets are v6-only
+port = 7290
+assets_path = "assets"          # the module points this at the packaged frontend
+# Sources allowed to connect at all, enforced before the TLS handshake.
+allowed_cidrs = [
+  "127.0.0.0/8", "::1/128",
+  "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7", "fe80::/10",
+  "100.64.0.0/10", "fd7a:115c:a1e0::/48",   # Tailscale
+]
+
+[tls]
+# Unset → a self-signed ECDSA P-256 certificate is generated on first start in
+# <data_dir>/tls and regenerated when the host's names/addresses change.
+# cert_file = "/path/to/fullchain.pem"
+# key_file  = "/path/to/privkey.pem"
+
+[auth]
+admin_group = "wheel"           # members log in as admin; no implicit first-user admin
+# viewer_group = "nas-view"     # optional read-only role
+idle_minutes = 30
+absolute_hours = 8
+recheck_minutes = 5             # group membership is re-checked this often
+login_rate_limit_attempts = 10  # per source IP; 0 disables
+login_rate_limit_window_secs = 60
+
+[paths]
+data_dir = "/var/lib/vexnas"
+
+[helper]
+socket = "/run/vexnas/helper.sock"

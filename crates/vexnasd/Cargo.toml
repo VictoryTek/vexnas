@@ -1,0 +1,14 @@
+[package]
+name = "vexnasd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "vexnas — root helper (PAM auth and, in later phases, privileged verbs)"
+
+[dependencies]
+vexnas-proto = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+libc = { workspace = true }
+pam-sys = "0.5"

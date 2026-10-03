@@ -13,7 +13,7 @@ own 7-phase workflow.
 | # | Question | Decision |
 |---|---|---|
 | D1 | Standalone app vs. a section in vexboard | **Standalone.** Separate repo, service, port, and privilege boundary. vexboard can link to it as a quick link. |
-| D2 | Frontend stack | **Match vexboard:** Rust, axum 0.8, Leptos 0.8 (CSR/WASM), Trunk, Tailwind. |
+| D2 | Frontend stack | **Match vexboard:** Rust, axum 0.8, Leptos 0.8 (CSR/WASM), Trunk. Styling is plain CSS with vexboard's design tokens, not Tailwind (see §12). |
 | D3 | Migrate Samba from registry mode to declarative shares | **Yes, gated.** Phase 1 runs declarative shares *alongside* `include = registry`. Registry mode is removed only after a real host has run declarative-only with discovery verified. |
 | D4 | Transport security | **Self-signed HTTPS by default**, generated on first start (Cockpit's model). A user-supplied cert/key can override it. |
 
@@ -98,7 +98,7 @@ destroying disks. See companion change C6.
 ### 1.5 vexboard conventions reused
 
 - Flake: `flake-utils` + `rust-overlay`. A custom `rustPlatform` with the `wasm32-unknown-unknown` target.
-- `wasm-bindgen-cli` is pinned to the `Cargo.lock` version.
+- `wasm-bindgen-cli` is pinned to the `Cargo.lock` version (consumers build against their own nixpkgs, so it is not taken from nixpkgs).
 - `nix/package.nix` runs `trunk build --release` then `cargo build --release`.
 - Outputs: `packages.<sys>.{vexboard,default}`, `overlays.default`, `nixosModules.{vexboard,default}`.
 - vexos-nix input uses `inputs.nixpkgs.follows = "nixpkgs-unstable"` (documented exception).
@@ -908,17 +908,14 @@ Linux-only (PAM, systemd), so it uses `eachSystem` with Linux systems, not `each
 |---|---|
 | `enable`, `package` | `pkgs.vexnas` |
 | `port` | `7290` |
-| `listenAddresses` | `[ "0.0.0.0" "::" ]` |
+| `listenAddresses` | `[ "0.0.0.0" "::" ]` (one socket each; v6 sockets are v6-only) |
 | `openFirewall` | `true` |
 | `firewall.interfaces` | `[]` (warning when empty) |
 | `allowedCidrs` | §4.5 |
 | `adminGroup` | `"wheel"` |
 | `viewerGroup` | `null` |
 | `tls.certFile` / `tls.keyFile` | `null` → self-signed |
-| `flakeDir` | `"/etc/nixos"` |
-| `nasFile` | `"${flakeDir}/nas.nix"` |
-| `poolScripts` | `null` (disables the wizard) |
-| `dataDir` | `/var/lib/vexnas` |
+| `flakeDir`, `nasFile`, `poolScripts` | added with the phase that first uses them (2, 2, 5) |
 | `settings` | TOML passthrough, as vexboard |
 
 The module declares:
@@ -984,3 +981,35 @@ the agent never runs `nixos-rebuild switch`/`boot`; you run real-host steps.
 5. Phase 0 must confirm `axum::serve` over `tokio::net::UnixListener` for the helper. If the API is
    unsuitable, use a plain length-delimited JSON protocol over `UnixStream` (preferred anyway: no
    HTTP stack in the root process).
+
+---
+
+## 12. Deviations and findings recorded during implementation
+
+Kept here so the spec stays honest about what was built. Update when a later phase changes them.
+
+**Phase 0 (skeleton) — 2026-10-03**
+
+| # | Spec said | Built | Why |
+|---|---|---|---|
+| 1 | Tailwind styling (D2, §1.5, §8) | Plain CSS using vexboard's `--color-*` tokens, light/dark via `prefers-color-scheme` | Tailwind needs a download/config step inside the Nix sandbox; the CSP (`style-src 'self'`) also forbids the inline `style=` attributes vexboard relies on. Same look, simpler build. |
+| 2 | Web unit has `SupplementaryGroups=systemd-journal` (§4.6) | Not granted yet | Nothing reads the journal until Phase 2 (apply log streaming). Grant when first needed. |
+| 3 | `services.vexnas` has `dataDir`, `flakeDir`, `nasFile`, `poolScripts` (§8) | Only options with a consumer: `port`, `listenAddresses`, `openFirewall`, `firewall.interfaces`, `allowedCidrs`, `adminGroup`, `viewerGroup`, `tls.*`, `settings`, `package` | `StateDirectory` fixes the data dir at `/var/lib/vexnas`; the others are added by phases 2 and 5. |
+| 4 | `POST /auth/reauth` in Phase 0 API (§7) | Deferred to Phase 2 | Re-auth tickets are minted by the helper and first needed by the apply engine. |
+| 5 | Helper `CapabilityBoundingSet` unspecified | `CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH, CAP_SETUID, CAP_SETGID, CAP_AUDIT_WRITE` | Enough for PAM (`pam_unix` reads shadow); verified by the VM test. Revisit as verbs are added. |
+| 6 | Helper `PrivateNetwork` (§4.6) | Kept. **Caveat:** NSS/PAM backends that need the network (LDAP without a local daemon) will not work from the helper. | sssd/nscd use unix sockets and are fine. |
+| 7 | `restartIfChanged=false` (§5.6) | Kept, with a documented manual restart until the apply engine restarts the units itself | A rebuild that changes vexnas needs `systemctl restart vexnasd.socket vexnasd vexnas`. |
+| 8 | `wasm-bindgen-cli` pinned (flake) | 0.2.129, matching `Cargo.lock` | crates.io's `web-sys` already required ≥0.2.129; bump the pin when `Cargo.lock` moves. |
+
+**Findings**
+- **HTTP/2 has no `Host` header.** The origin check initially read `Host`; browsers negotiate h2 over TLS, so login
+  would have failed for every browser while all in-process tests passed. Found by the NixOS VM test (real TLS).
+  Now uses the URI authority, with a regression test.
+- **serde ignores `deny_unknown_fields` on unit variants of internally tagged enums**, so `{"verb":"ping","extra":1}`
+  was accepted. `Ping` is now an empty struct variant; covered by a test.
+- **Trunk injects an inline `<script type="module">`**, confirming the CSP must allow it by hash (computed at
+  startup from the real `index.html`) rather than via `unsafe-inline`.
+- **Viewers could not log out** under a blanket "writes need admin" rule. Split into `require_session`
+  (any role) and `require_admin_for_writes` (data routes only).
+- Flakes in a git repo only see tracked files and this workflow never runs `git add`, so builds use `path:.`
+  with cargo's `target/` kept outside the repo.

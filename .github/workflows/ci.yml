@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  rust:
+    name: Rust (fmt · clippy · test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y libpam0g-dev pkg-config
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v1"
+
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --exclude vexnas-frontend --all-targets -- -D warnings
+      - run: cargo clippy -p vexnas-frontend --target wasm32-unknown-unknown -- -D warnings
+      - run: cargo test -p vexnas-proto -p vexnasd -p vexnas-web
+
+  nix:
+    name: Nix (package · NixOS VM test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: cachix/install-nix-action@v31
+
+      # The NixOS VM test needs KVM; GitHub's runners have it but not world-accessible.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - run: nix build .#vexnas -L
+      - run: nix build .#checks.x86_64-linux.vm-login -L

@@ -1,0 +1,14 @@
+[package]
+name = "vexnas-frontend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "vexnas — frontend (Leptos WASM)"
+
+[dependencies]
+leptos = { version = "0.8", features = ["csr"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+gloo-net = "0.7"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element"] }
+console_error_panic_hook = "0.1"

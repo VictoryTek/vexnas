@@ -1,0 +1,16 @@
+target/
+dist/
+crates/vexnas-frontend/dist/
+.trunk/
+result
+result-*
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+.DS_Store
+*.log

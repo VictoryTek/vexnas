@@ -13,10 +13,13 @@ as vexboard). It exports `packages.<system>.{vexnas,default}`, `overlays.default
 and `nixosModules.{vexnas,default}` (declares `services.vexnas.*`). Do not assume anything else about
 its internals.
 
-`services.vexnas` options you will map onto (all exist in the vexnas module):
-`enable`, `package`, `port` (default 7290), `openFirewall`, `firewall.interfaces`, `allowedCidrs`,
-`adminGroup` (default "wheel"), `flakeDir` (default "/etc/nixos"), `poolScripts` (package or null),
-`dataDir`.
+`services.vexnas` options that exist today (map only these; do not invent others):
+`enable`, `package`, `port` (default 7290), `listenAddresses`, `openFirewall` (default true),
+`firewall.interfaces`, `allowedCidrs`, `adminGroup` (default "wheel"), `viewerGroup` (default null),
+`tls.certFile`/`tls.keyFile`, `settings`. The module declares users/groups, a PAM service, the
+`vexnasd.socket`/`vexnasd.service` helper and `vexnas.service`, with `restartIfChanged = false` on both
+services (so a rebuild never restarts vexnas mid-apply; a manual `systemctl restart` is needed after a
+vexnas upgrade until the apply engine lands). The module asserts that `adminGroup` is a declared group.
 
 ## Changes
 1. `flake.nix`
@@ -37,7 +40,9 @@ its internals.
      service registers paths or is in `noBackupNeeded`).
    - `services.vexnas = { enable = true; inherit (cfg) port adminGroup allowedCidrs; firewall.interfaces = cfg.firewall.interfaces; };`
    - Emit a `warnings` entry when `firewall.interfaces == []` (mirror cockpit.nix wording).
-   - No secret file is required (vexnas generates its own session secret and TLS cert in its state dir).
+   - No secret file is required: sessions are server-side (random ids in SQLite) and the TLS certificate is
+     generated into vexnas's state directory on first start.
+   - Add a short note in the module header about the manual restart after upgrades (see above).
 3. `justfile`: add `vexnas` to `_server_service_names`, plus a one-line description entry wherever
    `just enable` lists services (check how `vexboard` is listed). Verify `just enable vexnas` would write
    `vexos.server.vexnas.enable = true;` to `/etc/nixos/server-services.nix` without special-casing.

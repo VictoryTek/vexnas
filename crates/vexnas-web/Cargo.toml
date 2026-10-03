@@ -1,0 +1,46 @@
+[package]
+name = "vexnas-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "vexnas — unprivileged web backend"
+
+[lib]
+name = "vexnas_web"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vexnas-web"
+path = "src/main.rs"
+
+[dependencies]
+vexnas-proto = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+libc = { workspace = true }
+axum = "0.8"
+axum-server = { version = "0.7", default-features = false, features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+ipnet = "2"
+if-addrs = "0.13"
+socket2 = { version = "0.6", features = ["all"] }
+toml = "0.8"
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"] }
+tower-sessions = "0.15"
+tower-http = { version = "0.6", features = ["fs"] }
+tower = "0.5"
+time = "0.3"
+async-trait = "0.1"
+base64 = "0.22"
+getrandom = "0.3"
+subtle = "2"
+sha2 = "0.10"
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"
+http-body-util = "0.1"
